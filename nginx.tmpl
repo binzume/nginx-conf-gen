@@ -46,16 +46,31 @@ upstream {{ $host }}{{ replace $path "/" "." -1 | trim }} {
 
 {{ end }}
 
+{{ $httpMode := or $.Env.HTTP_MODE "listen" }}
+{{ if eq $httpMode "redirect" }}
+server {
+	listen       80;
+	listen  [::]:80;
+	server_name {{ $host }};
+	return 301 https://$host$request_uri;
+}
+{{ end }}
 
 server {
 	gzip_types text/plain text/css application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
 	proxy_buffering off;
 
 	server_name {{ $host }};
+	{{ if eq $httpMode "listen"}}
 	listen 80;
 	listen [::]:80;
-        listen 443 ssl;
-        listen [::]:443 ssl;
+	{{ end }}
+	listen 443 ssl;
+	listen [::]:443 ssl;
+
+	include /etc/nginx/default.d/*.conf;
+	include /etc/nginx/sites-customizations/{{ $host }}.*.conf;
+
 
 {{ range $path := $paths}}
   {{ $c := where $containers "Env.HTTP_PATH" $path | or (whereNotExist $containers "Env.HTTP_PATH") | last }}
